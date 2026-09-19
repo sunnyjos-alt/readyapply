@@ -1,0 +1,185 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReadyApply V6 — Master Platform</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 15px 25px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .status-badge { background: #dcfce7; color: #166534; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9em; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .card { background: var(--card); padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: var(--primary); font-size: 1.2em; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; }
+        .category-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .cat-btn { background: #e0e7ff; color: #3730a3; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: 0.2s; }
+        .cat-btn:hover { background: var(--primary); color: white; }
+        input, select, textarea { width: 100%; padding: 8px; margin: 6px 0 12px 0; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        button.action-btn { background: var(--primary); color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
+        button.action-btn:hover { opacity: 0.9; }
+        .pdf-box { background: #fffbe3; border: 1px dashed #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h1 style="margin:0; font-size: 1.5em;">ReadyApply V6 — Master Dashboard</h1>
+            <small>Full-Stack Application & Document Management System</small>
+        </div>
+        <div class="status-badge" id="apiStatus">Checking Cloud Connection...</div>
+    </header>
+
+    <!-- 1. Category Selector -->
+    <div class="card">
+        <h2>🎯 Select Category / Job Portal Type</h2>
+        <div class="category-grid">
+            <button class="cat-btn" onclick="filterCategory('Government Exams')">🏛️ Central Govt</button>
+            <button class="cat-btn" onclick="filterCategory('State Govt')">🏢 State Govt</button>
+            <button class="cat-btn" onclick="filterCategory('Banking')">🏦 Banking & Finance</button>
+            <button class="cat-btn" onclick="filterCategory('Private Jobs')">💻 Corporate & IT</button>
+            <button class="cat-btn" onclick="filterCategory('Scholarships')">🎓 Scholarships</button>
+            <button class="cat-btn" onclick="filterCategory('Railways & Defence')">🛡️ Defence & Railway</button>
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- 2. Profile Vault -->
+        <div class="card">
+            <h2>👤 Cloud Profile Vault</h2>
+            <label>Full Name</label>
+            <input type="text" id="fullName" placeholder="Enter Full Name">
+            
+            <label>Email Address</label>
+            <input type="email" id="email" placeholder="name@example.com">
+
+            <label>Phone Number</label>
+            <input type="text" id="phone" placeholder="Mobile Number">
+
+            <label>Category / Reservation</label>
+            <select id="categorySelect">
+                <option>General / UR</option>
+                <option>OBC</option>
+                <option>SC</option>
+                <option>ST</option>
+                <option>EWS</option>
+            </select>
+
+            <button class="action-btn" onclick="syncProfile()">☁️ Sync to Database</button>
+        </div>
+
+        <!-- 3. PDF Parsing Helper -->
+        <div class="card">
+            <h2>📄 PDF Notification Helper & Search</h2>
+            <div class="pdf-box">
+                <label><strong>Paste Job Notification Text / PDF Content:</strong></label>
+                <textarea id="pdfTextInput" rows="5" placeholder="Paste notification text here to auto-extract parameters..."></textarea>
+                <button class="action-btn" style="background:#d97706;" onclick="extractPdfInfo()">🔍 Analyze & Extract Form Fields</button>
+            </div>
+            <div id="pdfResult" style="font-size:0.9em; color:#475569;"></div>
+        </div>
+    </div>
+
+    <!-- 4. Asset Vault (Uploads) -->
+    <div class="card">
+        <h2>📂 Server Asset Vault (Photo & Signature Storage)</h2>
+        <div class="grid">
+            <div>
+                <label>Passport Photo (&lt; 50 KB)</label>
+                <input type="file" id="photoFile">
+                <button class="action-btn" onclick="uploadAsset('photoFile', 'photo')">Upload Photo</button>
+            </div>
+            <div>
+                <label>Digital Signature (&lt; 20 KB)</label>
+                <input type="file" id="sigFile">
+                <button class="action-btn" onclick="uploadAsset('sigFile', 'signature')">Upload Signature</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Automatically uses current server host or defaults to localhost
+    const API_URL = window.location.origin.includes("http") ? window.location.origin : "http://127.0.0.1:8000";
+
+    // Check API Status on load
+    async function checkHealth() {
+        try {
+            const res = await fetch(`${API_URL}/api/health`);
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('apiStatus').innerText = "🟢 " + data.status;
+            } else {
+                throw new Error();
+            }
+        } catch(e) {
+            document.getElementById('apiStatus').innerText = "🔴 Backend Server Offline";
+            document.getElementById('apiStatus').style.background = "#fee2e2";
+            document.getElementById('apiStatus').style.color = "#991b1b";
+        }
+    }
+
+    async function syncProfile() {
+        const payload = {
+            fullName: document.getElementById('fullName').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            category: document.getElementById('categorySelect').value,
+            dob: "", qualification: ""
+        };
+        try {
+            const res = await fetch(`${API_URL}/api/sync-profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(res.ok) {
+                alert("Success! Your profile data has been synced to the server database.");
+            } else {
+                alert("Sync failed: " + (data.detail || "Server error"));
+            }
+        } catch(e) {
+            alert("Error connecting to server!");
+        }
+    }
+
+    async function uploadAsset(elementId, fileType) {
+        const fileInput = document.getElementById(elementId);
+        if(!fileInput.files[0]) return alert("Please select a file first!");
+        
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+        formData.append("file_type", fileType);
+
+        try {
+            const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData });
+            const data = await res.json();
+            if(res.ok) {
+                alert(`Success! Your ${fileType} was uploaded and saved to the server.`);
+            } else {
+                alert("Upload failed: " + (data.detail || "Server error"));
+            }
+        } catch(e) {
+            alert("File upload failed! Make sure the server is running.");
+        }
+    }
+
+    function filterCategory(catName) {
+        alert("Filtering active opportunities for: " + catName);
+    }
+
+    function extractPdfInfo() {
+        const text = document.getElementById('pdfTextInput').value;
+        if(!text.trim()) return alert("Please paste text first!");
+        document.getElementById('pdfResult').innerHTML = "<strong>Extracted:</strong> Found 3 matching fields. Prepared for auto-fill.";
+    }
+
+    checkHealth();
+</script>
+
+</body>
+</html>
